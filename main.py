@@ -687,87 +687,67 @@ analysis_card(
 divider()
 section_header(
     8,
-    "월별 평균 영화 흥행 규모",
-    "개봉 월에 따라 영화의 평균 총 관객 수가 어떻게 달라지는지 비교합니다.",
+    "개봉 월별 영화 흥행 분포",
+    "각 개봉 월의 영화들이 어느 정도의 관객 규모에 분포하는지 비교합니다.",
 )
 
-g8 = df.dropna(subset=["openDt", "total_audi"]).copy()
-
+g8 = df.dropna(subset=["openDt", "total_audi", "movieNm"]).copy()
 g8["개봉월"] = g8["openDt"].dt.month
+g8["월"] = g8["개봉월"].astype(int).astype(str) + "월"
 
-monthly = (
-    g8.groupby("개봉월")
-    .agg(
-        평균_총관객=("total_audi", "mean"),
-        영화_편수=("movieNm", "count"),
-    )
-    .reset_index()
-)
+month_order = [f"{i}월" for i in range(1, 13)]
 
-# 1~12월 전체 순서
-monthly = (
-    monthly.set_index("개봉월")
-    .reindex(range(1, 13))
-    .reset_index()
-)
-
-monthly["월"] = monthly["개봉월"].astype(str) + "월"
-
-fig8 = px.bar(
-    monthly,
+fig8 = px.box(
+    g8,
     x="월",
-    y="평균_총관객",
-    text="평균_총관객",
-    custom_data=["영화_편수"],
+    y="total_audi",
+    category_orders={"월": month_order},
+    points="all",
+    hover_data={"movieNm": True, "total_audi": ":,.0f", "월": False},
 )
 
 fig8.update_traces(
-    texttemplate="%{text:,.0f}명",
-    textposition="outside",
-    cliponaxis=False,
+    marker_size=6,
+    jitter=0.28,
+    pointpos=0,
+    boxmean=True,
     hovertemplate=(
-        "<b>%{x}</b><br>"
-        "평균 총 관객: %{y:,.0f}명<br>"
-        "영화 편수: %{customdata[0]}편"
+        "<b>%{customdata[0]}</b><br>"
+        "총 관객: %{y:,.0f}명"
         "<extra></extra>"
     ),
 )
 
 fig8.update_layout(
-    height=600,
+    yaxis_title="총 관객 수",
     xaxis_title="개봉 월",
-    yaxis_title="평균 총 관객 수",
-    margin=dict(l=25, r=25, t=35, b=30),
+    showlegend=False,
 )
 
 graph_card(fig8)
 
-available = monthly.dropna(subset=["평균_총관객"]).copy()
+month_stats = (
+    g8.groupby(["개봉월", "월"])["total_audi"]
+    .agg(중앙값="median", 평균="mean", 영화_편수="count", 최소="min", 최대="max")
+    .reset_index()
+    .sort_values("개봉월")
+)
 
-if not available.empty:
-    max_month = available.loc[
-        available["평균_총관객"].idxmax()
-    ]
-    min_month = available.loc[
-        available["평균_총관객"].idxmin()
-    ]
-
-    analysis_card(
-        f"월별 평균 총 관객 수를 비교한 결과 "
-        f"<b>{int(max_month['개봉월'])}월</b>에 개봉한 영화가 평균 "
-        f"<b>{int(max_month['평균_총관객']):,}명</b>으로 가장 높았고, "
-        f"<b>{int(min_month['개봉월'])}월</b>은 평균 "
-        f"<b>{int(min_month['평균_총관객']):,}명</b>으로 가장 낮았습니다. "
-        "이를 통해 영화의 흥행 규모가 개봉 시기에 따라 달라지는지 살펴볼 수 있습니다. "
-        "다만 월별 영화 편수가 서로 다르기 때문에 계절 자체가 흥행의 원인이라고 단정할 수는 없습니다."
+if not month_stats.empty:
+    median_row = month_stats.loc[month_stats["중앙값"].idxmax()]
+    analysis_text = (
+        f"월별 영화의 **총 관객 수 분포**를 비교한 결과, "
+        f"중앙값이 가장 높은 달은 **{median_row['월']}**로 "
+        f"{median_row['중앙값']:,.0f}명이다. "
+        f"평균값 하나만 비교하는 방식과 달리 박스의 범위와 개별 점을 함께 확인하면 "
+        f"각 달의 흥행 성적이 얼마나 넓게 퍼져 있는지도 확인할 수 있다. "
+        f"또한 특정 영화가 다른 영화보다 유난히 높은 경우에는 이상치로 나타나므로 "
+        f"초대형 흥행작 하나 때문에 월 전체의 특징이 과장되는 것을 줄일 수 있다. "
+        f"따라서 개봉 월과 영화 흥행의 관계를 판단할 때는 중앙값, 분포의 폭, "
+        f"영화 편수를 함께 살펴보는 것이 적절하다."
     )
-else:
-    st.warning("8번 그래프를 만들 수 있는 날짜 데이터가 없습니다.")
+    analysis_card("분석", analysis_text)
 
-
-# =========================================================
-# FOOTER
-# =========================================================
 divider()
 
 st.markdown(
