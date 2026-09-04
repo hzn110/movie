@@ -681,85 +681,87 @@ analysis_card(
 
 
 # =========================================================
-# 08. 완전히 새로운 그래프
-# 기존 '첫 주 관객 vs 총 관객' 산점도와 다른 주제
+# 08. 연도·월별 흥행 수준
 # =========================================================
 divider()
 section_header(
     8,
-    "개봉 월별 영화 흥행 분포",
-    "데이터가 실제로 존재하는 개봉 월만 표시하여 월별 총 관객 수 분포를 비교합니다.",
+    "연도·월별 영화 흥행 수준",
+    "실제 개봉 데이터가 있는 연도·월만 표시하고, 해당 기간에 개봉한 영화들의 총 관객 수 중앙값을 비교합니다.",
 )
 
 g8 = df.dropna(subset=["openDt", "total_audi", "movieNm"]).copy()
-g8["개봉월"] = g8["openDt"].dt.month
-g8["월"] = g8["개봉월"].astype(int).astype(str) + "월"
 
-# 데이터가 존재하는 월만 표시합니다.
-# 이 데이터셋에는 8월 개봉 영화가 없으므로 빈 8월 칸을 억지로 만들지 않습니다.
-month_order = (
-    g8.groupby("개봉월")["openDt"]
-    .min()
-    .sort_values()
-    .index
-    .tolist()
+# 연도와 월을 함께 사용해 같은 '월'이라도 서로 다른 연도를 구분합니다.
+g8["연도"] = g8["openDt"].dt.year
+g8["월"] = g8["openDt"].dt.month
+g8["연월"] = g8["openDt"].dt.strftime("%Y년 %m월")
+
+# 실제 데이터가 존재하는 연월만 시간순으로 정렬
+month_stats = (
+    g8.groupby(["연도", "월", "연월"])["total_audi"]
+    .agg(
+        중앙값="median",
+        평균="mean",
+        영화_편수="count",
+        최대="max",
+    )
+    .reset_index()
+    .sort_values(["연도", "월"])
 )
-month_labels = [f"{int(m)}월" for m in month_order]
 
-fig8 = px.box(
-    g8,
-    x="월",
-    y="total_audi",
-    category_orders={"월": month_labels},
-    points="all",
-    custom_data=["movieNm"],
+# 긴 연월 표기를 그대로 보여주기 위해 가로 막대그래프로 구성
+fig8 = px.bar(
+    month_stats,
+    x="중앙값",
+    y="연월",
+    orientation="h",
+    text="중앙값",
+    custom_data=["영화_편수", "평균", "최대"],
 )
 
 fig8.update_traces(
-    marker_size=6,
-    jitter=0.28,
-    pointpos=0,
-    boxmean=True,
+    texttemplate="%{x:,.0f}명",
+    textposition="outside",
+    cliponaxis=False,
     hovertemplate=(
-        "<b>%{customdata[0]}</b><br>"
-        "총 관객: %{y:,.0f}명"
+        "<b>%{y}</b><br>"
+        "총 관객 중앙값: %{x:,.0f}명<br>"
+        "영화 편수: %{customdata[0]}편<br>"
+        "총 관객 평균: %{customdata[1]:,.0f}명<br>"
+        "최대 총 관객: %{customdata[2]:,.0f}명"
         "<extra></extra>"
     ),
 )
 
 fig8.update_layout(
-    yaxis_title="총 관객 수 (로그 스케일)",
-    xaxis_title="개봉 월",
+    xaxis_title="총 관객 수 중앙값",
+    yaxis_title="개봉 연월",
     showlegend=False,
-    yaxis_type="log",
+    height=max(520, len(month_stats) * 48),
+    margin=dict(l=20, r=90, t=25, b=55),
 )
+
+# 데이터가 오래된 달 → 최근 달 순으로 읽히도록 위에서 아래로 배치
+fig8.update_yaxes(categoryorder="array", categoryarray=month_stats["연월"].tolist()[::-1])
 
 graph_card(fig8)
 
-month_stats = (
-    g8.groupby(["개봉월", "월"])["total_audi"]
-    .agg(중앙값="median", 평균="mean", 영화_편수="count", 최소="min", 최대="max")
-    .reset_index()
-    .sort_values("개봉월")
-)
-
 if not month_stats.empty:
-    median_row = month_stats.loc[month_stats["중앙값"].idxmax()]
-    median_low_row = month_stats.loc[month_stats["중앙값"].idxmin()]
-    missing_months = [m for m in range(1, 13) if m not in month_order]
-    missing_text = ""
-    if missing_months:
-        missing_text = " 이 데이터에는 " + ", ".join(f"{m}월" for m in missing_months) + " 개봉작이 없어 그래프에서 제외했다."
+    highest = month_stats.loc[month_stats["중앙값"].idxmax()]
+    lowest = month_stats.loc[month_stats["중앙값"].idxmin()]
+    first_date = g8["openDt"].min()
+    last_date = g8["openDt"].max()
 
     analysis_text = (
-        f"월별 영화의 **총 관객 수 분포**를 비교한 결과, "
-        f"중앙값이 가장 높은 달은 **{median_row['월']}**로 "
-        f"{median_row['중앙값']:,.0f}명이며, 가장 낮은 달은 "
-        f"**{median_low_row['월']}**로 {median_low_row['중앙값']:,.0f}명이다. "
-        f"박스플롯은 중앙값과 영화들의 분포, 개별 흥행작을 함께 보여주므로 "
-        f"특정 대작 하나 때문에 평균이 크게 움직이는 현상을 줄여 월별 차이를 비교하기에 적절하다. "
-        f"또한 월별 영화 편수가 다르므로 개봉 월만으로 흥행 여부를 단정하기보다 "
-        f"각 월의 분포와 표본 수를 함께 살펴봐야 한다.{missing_text}"
+        f"이 데이터의 개봉 기간은 **{first_date.strftime('%Y년 %m월')}부터 "
+        f"{last_date.strftime('%Y년 %m월')}까지**이다. "
+        f"월별 영화의 총 관객 수 중앙값을 비교하면 **{highest['연월']}**이 "
+        f"{highest['중앙값']:,.0f}명으로 가장 높고, **{lowest['연월']}**이 "
+        f"{lowest['중앙값']:,.0f}명으로 가장 낮다. "
+        f"중앙값은 특정 초대형 흥행작 하나가 전체 결과를 지나치게 끌어올리는 영향을 줄이면서 "
+        f"각 시기에 개봉한 영화의 전반적인 흥행 수준을 비교하기에 적절하다. "
+        f"막대에 표시된 값과 함께 각 시기의 영화 편수도 확인해야 월별 차이를 올바르게 해석할 수 있다."
     )
     analysis_card(analysis_text)
 
