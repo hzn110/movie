@@ -1,76 +1,87 @@
-# 어제의 박스오피스 — KOBIS 일별 박스오피스 API
-import datetime
-
+import streamlit as st
 import pandas as pd
 import plotly.express as px
-import requests
-import streamlit as st
 
-st.set_page_config(page_title="어제의 박스오피스", page_icon="🎬", layout="wide")
+st.set_page_config(
+    page_title="영화 데이터 그래프 도감 2 - 분포와 관계",
+    page_icon="🎬",
+    layout="wide",
+)
 
-# 인증키는 비밀 금고(secrets)에서 불러온다 — 코드에 직접 쓰지 않는다
-API_KEY = st.secrets["KOBIS_KEY"]
-URL = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDailyBoxOfficeList.json"
+DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/kobis_movies.csv"
 
-# '어제'를 한국 시간 기준으로 계산한다 (배포 서버의 시계는 한국 시간이 아니다)
-KST = datetime.timezone(datetime.timedelta(hours=9))
-yesterday = datetime.datetime.now(KST).date() - datetime.timedelta(days=1)
-target_dt = yesterday.strftime("%Y%m%d")
+st.title("영화 데이터 그래프 도감 2 - 분포와 관계")
+st.caption("1년간 박스오피스 10위권에 든 영화 중 해당 기간에 개봉한 216편의 데이터를 이용합니다.")
 
+@st.cache_data
+def load_data():
+    df = pd.read_csv(DATA_URL, encoding="utf-8-sig")
 
-@st.cache_data(ttl=3600)  # 같은 날짜는 한 시간 동안 기억해 두고 API를 다시 부르지 않는다
-def fetch_boxoffice(date_str):
-    """KOBIS API에서 해당 날짜의 일별 박스오피스를 받아 온다."""
-    params = {"key": API_KEY, "targetDt": date_str}
-    res = requests.get(URL, params=params, timeout=10)
-    res.raise_for_status()
-    return res.json()
+    # 사용자가 지정한 분석용 열만 사용
+    columns = [
+        "movieCd", "movieNm", "openDt", "genre", "nation",
+        "first_scrn", "first_show", "first_week_audi",
+        "total_audi", "days_in_top10"
+    ]
+    df = df[columns].copy()
 
+    # 장르가 여러 개면 첫 번째 장르만 사용
+    df["genre"] = (
+        df["genre"]
+        .fillna("미상")
+        .astype(str)
+        .str.split("|")
+        .str[0]
+        .str.strip()
+    )
 
-st.title("🎬 어제의 박스오피스")
-st.caption(f"조회 날짜: {yesterday} (한국 시간 기준 어제)")
+    return df
 
 try:
-    data = fetch_boxoffice(target_dt)
-except requests.RequestException:
-    st.error("서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 잠시 뒤 새로고침해 주세요.")
+    df = load_data()
+except Exception as e:
+    st.error("데이터를 불러오는 중 오류가 발생했습니다.")
+    st.exception(e)
     st.stop()
 
-# 인증키가 틀리면 상태코드는 200이지만 faultInfo 상자가 온다
-if "faultInfo" in data:
-    st.error(f"API가 오류를 돌려주었습니다: {data['faultInfo'].get('message', '')}")
-    st.info("비밀 금고(secrets)의 KOBIS_KEY 값이 올바른지 확인해 주세요.")
-    st.stop()
+# ---------------------------------------------------------
+# 그래프 1. 장르별 영화 편수
+# ---------------------------------------------------------
+st.divider()
+st.subheader("① 장르별 영화 편수")
 
-movies = data.get("boxOfficeResult", {}).get("dailyBoxOfficeList", [])
+genre_counts = (
+    df["genre"]
+    .value_counts()
+    .rename_axis("장르")
+    .reset_index(name="영화 편수")
+)
 
-# 영화 목록이 비어서 오면 — 아직 집계 전인 날짜다
-if not movies:
-    st.warning("영화 목록이 비어 있습니다. 아직 집계 전인 날짜는 아닌지 확인해 주세요.")
-    st.stop()
+fig = px.pie(
+    genre_counts,
+    names="장르",
+    values="영화 편수",
+    hole=0.55,
+    title="장르별 영화 편수 분포",
+)
 
-df = pd.DataFrame(movies)
+fig.update_traces(
+    textinfo="percent",
+    hovertemplate="<b>%{label}</b><br>영화 편수: %{value}편<br>비율: %{percent}<extra></extra>",
+)
 
-# 숫자가 글자로 오므로 숫자로 바꿔야 정렬과 그래프에 쓸 수 있다
-for col in ["rank", "audiCnt", "audiAcc", "scrnCnt"]:
-    df[col] = pd.to_numeric(df[col])
+fig.update_layout(
+    height=550,
+    margin=dict(t=70, b=30, l=20, r=20),
+    legend_title_text="장르",
+)
 
-# 1위 영화는 지표 카드 세 장으로 크게
-top = df.sort_values("rank").iloc[0]
-st.subheader(f"🥇 1위 — {top['movieNm']}")
-c1, c2, c3 = st.columns(3)
-c1.metric("어제 관객수", f"{top['audiCnt']:,}명")
-c2.metric("누적 관객수", f"{top['audiAcc']:,}명")
-c3.metric("스크린수", f"{top['scrnCnt']:,}개")
+st.plotly_chart(fig, use_container_width=True)
 
-# 전체 순위표
-st.subheader("📋 어제의 순위표")
-table = df.sort_values("rank")[["rank", "movieNm", "openDt", "audiCnt", "audiAcc", "scrnCnt"]]
-table.columns = ["순위", "영화명", "개봉일", "관객수", "누적관객", "스크린수"]
-st.dataframe(table, hide_index=True, width="stretch")
+st.info(
+    "💡 이 그래프로 알 수 있는 것: "
+    "장르별 영화 편수의 차이와 전체 영화에서 각 장르가 차지하는 비율을 비교할 수 있습니다."
+)
 
-# 관객수 상위 5편은 막대그래프로
-st.subheader("📊 관객수 상위 5편")
-top5 = df.sort_values("audiCnt", ascending=False).head(5)
-fig = px.bar(top5, x="movieNm", y="audiCnt", labels={"movieNm": "영화명", "audiCnt": "어제 관객수"})
-st.plotly_chart(fig, width="stretch")
+st.divider()
+st.caption(f"총 {len(df):,}편의 영화 데이터를 사용했습니다.")
