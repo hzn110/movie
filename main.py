@@ -11,12 +11,193 @@ st.set_page_config(
     layout="wide",
 )
 
+# =========================================================
+# UI 디자인
+# =========================================================
+st.markdown("""
+<style>
+    /* 전체 배경과 기본 글자 */
+    .stApp {
+        background: #f5f7fb;
+    }
+
+    .main .block-container {
+        max-width: 1200px;
+        padding-top: 2.5rem;
+        padding-bottom: 4rem;
+    }
+
+    /* 모든 기본 텍스트를 어두운 색으로 */
+    html, body, [class*="css"] {
+        color: #172033 !important;
+    }
+
+    p, li, span, label, div {
+        color: #172033;
+    }
+
+    /* 제목 */
+    h1 {
+        color: #111827 !important;
+        font-size: 2.35rem !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.04em;
+        margin-bottom: 0.35rem !important;
+    }
+
+    h2 {
+        color: #111827 !important;
+        font-size: 1.55rem !important;
+        font-weight: 750 !important;
+        letter-spacing: -0.025em;
+        margin-top: 0.4rem !important;
+    }
+
+    h3 {
+        color: #1f2937 !important;
+        font-weight: 700 !important;
+    }
+
+    /* 상단 설명 */
+    .intro {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin: 0.5rem 0 1.5rem 0;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+    }
+
+    .intro-title {
+        color: #111827 !important;
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .intro-text {
+        color: #4b5563 !important;
+        line-height: 1.7;
+        font-size: 0.94rem;
+    }
+
+    /* 그래프 섹션 */
+    .section-label {
+        display: inline-block;
+        background: #111827;
+        color: #ffffff !important;
+        border-radius: 8px;
+        padding: 5px 10px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-bottom: 7px;
+    }
+
+    .section-description {
+        color: #6b7280 !important;
+        font-size: 0.91rem;
+        margin-bottom: 8px;
+    }
+
+    /* 설명/인사이트 박스 */
+    .insight-box {
+        background: #ffffff !important;
+        border: 1px solid #dbe2ea;
+        border-left: 5px solid #4f46e5;
+        border-radius: 10px;
+        padding: 15px 18px;
+        margin: 12px 0 28px 0;
+        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    .insight-title {
+        color: #312e81 !important;
+        font-weight: 800;
+        font-size: 0.92rem;
+        margin-bottom: 5px;
+    }
+
+    .insight-text {
+        color: #374151 !important;
+        line-height: 1.65;
+        font-size: 0.9rem;
+    }
+
+    /* Streamlit 알림 박스의 글씨 */
+    [data-testid="stAlert"] {
+        color: #172033 !important;
+    }
+
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] div,
+    [data-testid="stAlert"] span {
+        color: #172033 !important;
+    }
+
+    /* 그래프 주변 */
+    [data-testid="stPlotlyChart"] {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 8px;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.045);
+        margin-bottom: 8px;
+    }
+
+    /* 구분선 */
+    hr {
+        border: 0 !important;
+        border-top: 1px solid #e1e6ed !important;
+        margin: 2.2rem 0 1.8rem 0 !important;
+    }
+
+    /* 성공/정보 박스 */
+    [data-testid="stAlert"][kind="info"] {
+        background: #eef2ff !important;
+        border: 1px solid #c7d2fe !important;
+    }
+
+    [data-testid="stAlert"][kind="success"] {
+        background: #ecfdf5 !important;
+        border: 1px solid #a7f3d0 !important;
+    }
+
+    /* 모바일 */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1.2rem 0.8rem 3rem 0.8rem;
+        }
+
+        h1 {
+            font-size: 1.8rem !important;
+        }
+
+        h2 {
+            font-size: 1.3rem !important;
+        }
+
+        .intro {
+            padding: 16px;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 DATA_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/kobis_movies.csv"
 
-st.title("🎬 영화 데이터 그래프 도감 2 - 분포와 관계")
+st.title("🎬 영화 데이터 그래프 도감 2")
 st.markdown(
-    "1년간 박스오피스 10위권에 든 영화 가운데 해당 기간에 개봉한 "
-    "**216편**의 데이터를 이용해 영화의 분포와 관계를 살펴봅니다."
+    """
+    <div class="intro">
+        <div class="intro-title">분포와 관계를 한눈에 살펴보는 영화 데이터 분석</div>
+        <div class="intro-text">
+            1년간 박스오피스 10위권에 든 영화 가운데 해당 기간에 개봉한
+            <b>216편</b>의 데이터를 바탕으로 장르, 관객 수, 개봉 규모,
+            제작 국가 등의 관계를 시각적으로 분석합니다.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------
@@ -86,19 +267,13 @@ def separator():
 def explanation(text):
     st.markdown(
         f"""
-        <div style="
-            background-color:#f7f7f7;
-            border-left:5px solid #666;
-            padding:14px 18px;
-            margin:10px 0 20px 0;
-            border-radius:5px;">
-            <b>💡 이 그래프로 알 수 있는 것</b><br>
-            {text}
+        <div class="insight-box">
+            <div class="insight-title">💡 이 그래프로 알 수 있는 것</div>
+            <div class="insight-text">{text}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
 
 # =========================================================
 # ① 장르별 영화 편수 - 도넛
@@ -340,7 +515,7 @@ explanation(
 # ⑥ 버블 산점도
 # =========================================================
 separator()
-st.header("⑥ 첫 주 관객을 크기로 넣은 버블 그래프")
+st.header("⑥ 개봉 규모 × 총관객 × 첫 주 관객")
 st.caption("④번 산점도에 first_week_audi를 점 크기로 추가한 그래프입니다.")
 
 bubble_df = df.dropna(
@@ -408,7 +583,7 @@ explanation(
 # ⑦ 제작 국가 → 장르 선버스트
 # =========================================================
 separator()
-st.header("⑦ 제작 국가에서 장르로 내려가는 영화 구성")
+st.header("⑦ 제작 국가 → 장르 구성")
 st.caption("제작 국가별 영화 편수를 장르까지 내려가며 살펴봅니다.")
 
 sun_df = (
