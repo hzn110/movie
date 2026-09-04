@@ -405,73 +405,6 @@ explanation(
 
 
 # =========================================================
-# ⑧ 개봉 첫 주 관객 × 총 관객
-# =========================================================
-separator()
-st.header("⑧ 개봉 첫 주 관객이 높은 영화는 총관객도 높은가?")
-st.caption("개봉 첫 주 관객 수와 총 관객 수의 관계를 산점도로 확인합니다.")
-
-week_df = df.dropna(
-    subset=["first_week_audi", "total_audi", "movieNm"]
-).copy()
-
-fig8 = px.scatter(
-    week_df,
-    x="first_week_audi",
-    y="total_audi",
-    color="genre",
-    hover_name="movieNm",
-    hover_data={
-        "first_week_audi": ":,",
-        "total_audi": ":,",
-        "genre": True,
-    },
-    labels={
-        "first_week_audi": "개봉 첫 주 관객 수",
-        "total_audi": "총 관객 수",
-        "genre": "장르",
-    },
-    title="개봉 첫 주 관객 수와 총 관객 수의 관계",
-)
-
-fig8.update_layout(
-    xaxis_title="개봉 첫 주 관객 수(명)",
-    yaxis_title="총 관객 수(명)",
-    legend_title="장르",
-)
-
-st.plotly_chart(fig8, use_container_width=True)
-
-corr = week_df["first_week_audi"].corr(week_df["total_audi"])
-
-if pd.notna(corr):
-    if corr >= 0.7:
-        relation = "강한 양의 상관관계"
-    elif corr >= 0.4:
-        relation = "뚜렷한 양의 상관관계"
-    elif corr >= 0.2:
-        relation = "약한 양의 상관관계"
-    elif corr > -0.2:
-        relation = "상관관계가 거의 없음"
-    elif corr > -0.4:
-        relation = "약한 음의 상관관계"
-    else:
-        relation = "뚜렷한 음의 상관관계"
-
-    st.info(
-        f"상관계수: **{corr:.2f}** → **{relation}**. "
-        "점들이 오른쪽 위 방향으로 모일수록 개봉 첫 주 관객이 많은 영화가 "
-        "총 관객도 많은 경향이 있다는 의미입니다."
-    )
-
-explanation(
-    "이 그래프는 '개봉 초반에 흥행한 영화가 최종적으로도 흥행하는가?'를 "
-    "확인하기 위한 그래프입니다. 두 변수의 상관계수가 높고 점들이 오른쪽 위로 "
-    "모여 있다면 첫 주 관객 수가 총 관객 수의 중요한 지표라고 볼 수 있습니다."
-)
-
-
-# =========================================================
 # ⑦ 제작 국가 → 장르 선버스트
 # =========================================================
 separator()
@@ -515,3 +448,59 @@ explanation(
 # ---------------------------------------------------------
 separator()
 st.success(f"총 {len(df):,}편의 영화 데이터를 분석했습니다.")
+# =========================================================
+# ⑧ 개봉 첫 주 관객과 총 관객의 관계
+# =========================================================
+separator()
+
+st.header("⑧ 개봉 첫 주 관객이 높은 영화는 총관객도 높은가?")
+st.caption("개봉 첫 주 관객 수와 총 관객 수가 실제로 함께 증가하는지 확인합니다.")
+
+week_df = df[["movieNm", "genre", "first_week_audi", "total_audi"]].copy()
+week_df["first_week_audi"] = pd.to_numeric(week_df["first_week_audi"], errors="coerce")
+week_df["total_audi"] = pd.to_numeric(week_df["total_audi"], errors="coerce")
+week_df = week_df.dropna(
+    subset=["movieNm", "first_week_audi", "total_audi"]
+)
+
+fig8 = px.scatter(
+    week_df,
+    x="first_week_audi",
+    y="total_audi",
+    color="genre",
+    hover_name="movieNm",
+    hover_data={
+        "first_week_audi": ":,",
+        "total_audi": ":,",
+        "genre": True,
+    },
+    labels={
+        "first_week_audi": "개봉 첫 주 관객 수",
+        "total_audi": "총 관객 수",
+        "genre": "장르",
+    },
+)
+
+fig8.update_layout(
+    title="개봉 첫 주 관객 수와 총 관객 수의 관계",
+    xaxis_title="개봉 첫 주 관객 수(명)",
+    yaxis_title="총 관객 수(명)",
+    height=650,
+)
+
+st.plotly_chart(fig8, use_container_width=True)
+
+corr = week_df["first_week_audi"].corr(week_df["total_audi"])
+
+if pd.notna(corr):
+    st.info(
+        f"**상관계수: {corr:.2f}**  \n"
+        "상관계수가 1에 가까울수록 개봉 첫 주 관객이 많은 영화가 "
+        "총 관객도 많은 경향이 강하다는 의미입니다."
+    )
+
+explanation(
+    "개봉 첫 주 관객 수와 총 관객 수를 직접 비교한 그래프입니다. "
+    "점들이 오른쪽 위 방향으로 뚜렷하게 모여 있다면 "
+    "개봉 초반 흥행이 최종 흥행과 관련이 있다고 볼 수 있습니다."
+)
