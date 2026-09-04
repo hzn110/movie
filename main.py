@@ -688,20 +688,29 @@ divider()
 section_header(
     8,
     "개봉 월별 영화 흥행 분포",
-    "각 개봉 월의 영화들이 어느 정도의 관객 규모에 분포하는지 비교합니다.",
+    "데이터가 실제로 존재하는 개봉 월만 표시하여 월별 총 관객 수 분포를 비교합니다.",
 )
 
 g8 = df.dropna(subset=["openDt", "total_audi", "movieNm"]).copy()
 g8["개봉월"] = g8["openDt"].dt.month
 g8["월"] = g8["개봉월"].astype(int).astype(str) + "월"
 
-month_order = [f"{i}월" for i in range(1, 13)]
+# 데이터가 존재하는 월만 표시합니다.
+# 이 데이터셋에는 8월 개봉 영화가 없으므로 빈 8월 칸을 억지로 만들지 않습니다.
+month_order = (
+    g8.groupby("개봉월")["openDt"]
+    .min()
+    .sort_values()
+    .index
+    .tolist()
+)
+month_labels = [f"{int(m)}월" for m in month_order]
 
 fig8 = px.box(
     g8,
     x="월",
     y="total_audi",
-    category_orders={"월": month_order},
+    category_orders={"월": month_labels},
     points="all",
     custom_data=["movieNm"],
 )
@@ -737,15 +746,20 @@ month_stats = (
 if not month_stats.empty:
     median_row = month_stats.loc[month_stats["중앙값"].idxmax()]
     median_low_row = month_stats.loc[month_stats["중앙값"].idxmin()]
+    missing_months = [m for m in range(1, 13) if m not in month_order]
+    missing_text = ""
+    if missing_months:
+        missing_text = " 이 데이터에는 " + ", ".join(f"{m}월" for m in missing_months) + " 개봉작이 없어 그래프에서 제외했다."
+
     analysis_text = (
         f"월별 영화의 **총 관객 수 분포**를 비교한 결과, "
         f"중앙값이 가장 높은 달은 **{median_row['월']}**로 "
         f"{median_row['중앙값']:,.0f}명이며, 가장 낮은 달은 "
         f"**{median_low_row['월']}**로 {median_low_row['중앙값']:,.0f}명이다. "
-        f"박스플롯은 평균 하나만 비교하는 대신 중앙값과 영화들의 분포, "
-        f"개별 흥행작을 함께 보여주기 때문에 특정 대작 하나의 영향이 과도하게 나타나는 것을 줄일 수 있다. "
-        f"또한 월별 영화 편수도 다르므로, 개봉 월만으로 흥행 여부를 판단하기보다는 "
-        f"각 월의 분포와 표본 수를 함께 살펴보는 것이 적절하다."
+        f"박스플롯은 중앙값과 영화들의 분포, 개별 흥행작을 함께 보여주므로 "
+        f"특정 대작 하나 때문에 평균이 크게 움직이는 현상을 줄여 월별 차이를 비교하기에 적절하다. "
+        f"또한 월별 영화 편수가 다르므로 개봉 월만으로 흥행 여부를 단정하기보다 "
+        f"각 월의 분포와 표본 수를 함께 살펴봐야 한다.{missing_text}"
     )
     analysis_card(analysis_text)
 
