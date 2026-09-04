@@ -70,7 +70,7 @@ def load_data():
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df["openDt"] = pd.to_datetime(df["openDt"], errors="coerce")
+    df["openDt"] = pd.to_datetime(df["openDt"].astype("string"), format="%Y%m%d", errors="coerce")
 
     return df
 
@@ -703,7 +703,7 @@ fig8 = px.box(
     y="total_audi",
     category_orders={"월": month_order},
     points="all",
-    hover_data={"movieNm": True, "total_audi": ":,.0f", "월": False},
+    custom_data=["movieNm"],
 )
 
 fig8.update_traces(
@@ -719,9 +719,10 @@ fig8.update_traces(
 )
 
 fig8.update_layout(
-    yaxis_title="총 관객 수",
+    yaxis_title="총 관객 수 (로그 스케일)",
     xaxis_title="개봉 월",
     showlegend=False,
+    yaxis_type="log",
 )
 
 graph_card(fig8)
@@ -735,18 +736,18 @@ month_stats = (
 
 if not month_stats.empty:
     median_row = month_stats.loc[month_stats["중앙값"].idxmax()]
+    median_low_row = month_stats.loc[month_stats["중앙값"].idxmin()]
     analysis_text = (
         f"월별 영화의 **총 관객 수 분포**를 비교한 결과, "
         f"중앙값이 가장 높은 달은 **{median_row['월']}**로 "
-        f"{median_row['중앙값']:,.0f}명이다. "
-        f"평균값 하나만 비교하는 방식과 달리 박스의 범위와 개별 점을 함께 확인하면 "
-        f"각 달의 흥행 성적이 얼마나 넓게 퍼져 있는지도 확인할 수 있다. "
-        f"또한 특정 영화가 다른 영화보다 유난히 높은 경우에는 이상치로 나타나므로 "
-        f"초대형 흥행작 하나 때문에 월 전체의 특징이 과장되는 것을 줄일 수 있다. "
-        f"따라서 개봉 월과 영화 흥행의 관계를 판단할 때는 중앙값, 분포의 폭, "
-        f"영화 편수를 함께 살펴보는 것이 적절하다."
+        f"{median_row['중앙값']:,.0f}명이며, 가장 낮은 달은 "
+        f"**{median_low_row['월']}**로 {median_low_row['중앙값']:,.0f}명이다. "
+        f"박스플롯은 평균 하나만 비교하는 대신 중앙값과 영화들의 분포, "
+        f"개별 흥행작을 함께 보여주기 때문에 특정 대작 하나의 영향이 과도하게 나타나는 것을 줄일 수 있다. "
+        f"또한 월별 영화 편수도 다르므로, 개봉 월만으로 흥행 여부를 판단하기보다는 "
+        f"각 월의 분포와 표본 수를 함께 살펴보는 것이 적절하다."
     )
-    analysis_card("분석", analysis_text)
+    analysis_card(analysis_text)
 
 divider()
 
